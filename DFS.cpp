@@ -331,39 +331,57 @@ public:
 int main() {
     DistributedFS dfs(4); // 4 nodes recommended for triple replication
 
-    string cmd, arg;
+    string line, cmd, arg;
 
     cout << "\n=== DISTRIBUTED FILE SYSTEM ===\n";
-    cout << "Commands: upload, download, delete, list, fail, recover, nodes, exit\n\n";
+    cout << "Commands: upload <file>, download <file>, delete <file>, list, fail <id>, recover <id>, nodes, exit\n\n";
 
     while (true) {
         cout << "DFS> ";
-        cin >> cmd;
+        getline(cin, line);
+
+        if (line.empty()) continue;
+
+        stringstream ss(line);
+        ss >> cmd;
 
         if (cmd == "upload") {
-            cin >> arg;
-            dfs.upload(arg);
+            getline(ss, arg);
+            // Trim leading whitespace from arg
+            arg.erase(0, arg.find_first_not_of(" \t"));
+            if (!arg.empty()) dfs.upload(arg);
+            else cout << "Usage: upload <filename>\n";
         }
         else if (cmd == "download") {
-            cin >> arg;
-            dfs.download(arg);
+            getline(ss, arg);
+            arg.erase(0, arg.find_first_not_of(" \t"));
+            if (!arg.empty()) dfs.download(arg);
+            else cout << "Usage: download <filename>\n";
         }
         else if (cmd == "delete") {
-            cin >> arg;
-            dfs.deleteFile(arg);
+            getline(ss, arg);
+            arg.erase(0, arg.find_first_not_of(" \t"));
+            if (!arg.empty()) dfs.deleteFile(arg);
+            else cout << "Usage: delete <filename>\n";
         }
         else if (cmd == "list") {
             dfs.listFiles();
         }
         else if (cmd == "fail") {
-            cin >> arg;
-            int nodeId = stoi(arg);
-            dfs.failNode(nodeId);
+            ss >> arg;
+            if (!arg.empty()) {
+                int nodeId = stoi(arg);
+                dfs.failNode(nodeId);
+            }
+            else cout << "Usage: fail <node_id>\n";
         }
         else if (cmd == "recover") {
-            cin >> arg;
-            int nodeId = stoi(arg);
-            dfs.recoverNode(nodeId);
+            ss >> arg;
+            if (!arg.empty()) {
+                int nodeId = stoi(arg);
+                dfs.recoverNode(nodeId);
+            }
+            else cout << "Usage: recover <node_id>\n";
         }
         else if (cmd == "nodes") {
             dfs.showNodes();
@@ -372,7 +390,7 @@ int main() {
             break;
         }
         else {
-            cout << "Invalid command.\n";
+            cout << "Invalid command. Type 'help' for usage.\n";
         }
     }
 
