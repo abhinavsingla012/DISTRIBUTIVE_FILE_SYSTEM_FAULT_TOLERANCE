@@ -53,16 +53,21 @@ public:
         vector<int> usedNodes;
         int replicated = 0;
 
-        for (auto &node : nodes) {
-            if (node.active) {
-                fs::copy(filename, node.directory / filename,
-                         fs::copy_options::overwrite_existing);
+        try {
+            for (auto &node : nodes) {
+                if (node.active) {
+                    fs::copy(filename, node.directory / filename,
+                             fs::copy_options::overwrite_existing);
 
-                usedNodes.push_back(node.id);
-                replicated++;
+                    usedNodes.push_back(node.id);
+                    replicated++;
+                }
+                if (replicated == REPLICATION)
+                    break;
             }
-            if (replicated == REPLICATION)
-                break;
+        } catch (const fs::filesystem_error &e) {
+            cout << "Error during file replication: " << e.what() << "\n";
+            return;
         }
 
         if (replicated < REPLICATION) {
@@ -84,18 +89,23 @@ public:
             return;
         }
 
-        for (int nodeID : metadata[filename]) {
-            Node &node = nodes[nodeID - 1];
+        try {
+            for (int nodeID : metadata[filename]) {
+                Node &node = nodes[nodeID - 1];
 
-            if (node.active) {
-                fs::copy(node.directory / filename,
-                         "downloaded_" + filename,
-                         fs::copy_options::overwrite_existing);
+                if (node.active) {
+                    fs::copy(node.directory / filename,
+                             "downloaded_" + filename,
+                             fs::copy_options::overwrite_existing);
 
-                cout << "[DOWNLOAD SUCCESS] File downloaded from Node "
-                     << nodeID << "\n";
-                return;
+                    cout << "[DOWNLOAD SUCCESS] File downloaded from Node "
+                         << nodeID << "\n";
+                    return;
+                }
             }
+        } catch (const fs::filesystem_error &e) {
+            cout << "Error during download: " << e.what() << "\n";
+            return;
         }
 
         cout << "[ERROR] All replicas are unavailable. File cannot be downloaded.\n";
@@ -108,8 +118,13 @@ public:
             return;
         }
 
-        for (int nodeID : metadata[filename]) {
-            fs::remove(nodes[nodeID - 1].directory / filename);
+        try {
+            for (int nodeID : metadata[filename]) {
+                fs::remove(nodes[nodeID - 1].directory / filename);
+            }
+        } catch (const fs::filesystem_error &e) {
+            cout << "Error during deletion: " << e.what() << "\n";
+            return;
         }
 
         metadata.erase(filename);
