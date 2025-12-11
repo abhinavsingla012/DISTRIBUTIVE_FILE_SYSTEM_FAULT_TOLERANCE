@@ -135,6 +135,10 @@ public:
 
     // Fail a node + check warnings
     void failNode(int id) {
+        if (id < 1 || id > (int)nodes.size()) {
+            cout << "Error: Invalid node ID " << id << ".\n";
+            return;
+        }
         nodes[id - 1].fail();
         cout << "[NODE FAILED] Node " << id << " is inactive.\n";
 
@@ -144,6 +148,10 @@ public:
 
     // Recover a node
     void recoverNode(int id) {
+        if (id < 1 || id > (int)nodes.size()) {
+            cout << "Error: Invalid node ID " << id << ".\n";
+            return;
+        }
         nodes[id - 1].recover();
         cout << "[NODE RECOVERED] Node " << id << " is active.\n";
 
@@ -211,11 +219,13 @@ int main() {
         }
         else if (cmd == "fail") {
             cin >> arg;
-            dfs.failNode(stoi(arg));
+            int nodeId = stoi(arg);
+            dfs.failNode(nodeId);
         }
         else if (cmd == "recover") {
             cin >> arg;
-            dfs.recoverNode(stoi(arg));
+            int nodeId = stoi(arg);
+            dfs.recoverNode(nodeId);
         }
         else if (cmd == "nodes") {
             dfs.showNodes();
