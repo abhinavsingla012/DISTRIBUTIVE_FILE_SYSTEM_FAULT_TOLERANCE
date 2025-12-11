@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <vector>
 #include <map>
+#include <sstream>
 
 using namespace std;
 namespace fs = std::filesystem;
@@ -34,6 +35,60 @@ private:
     map<string, vector<int>> metadata;
 
     const int REPLICATION = 3;
+    const string METADATA_FILE = "metadata.txt";
+
+    // Save metadata to file
+    void saveMetadata() {
+        try {
+            ofstream file(METADATA_FILE);
+            for (auto &entry : metadata) {
+                file << entry.first << ":";
+                for (int id : entry.second) {
+                    file << id << ",";
+                }
+                file << "\n";
+            }
+            file.close();
+        } catch (const exception &e) {
+            cout << "Warning: Failed to save metadata: " << e.what() << "\n";
+        }
+    }
+
+    // Load metadata from file
+    void loadMetadata() {
+        try {
+            if (!fs::exists(METADATA_FILE)) return;
+
+            ifstream file(METADATA_FILE);
+            string line;
+            while (getline(file, line)) {
+                if (line.empty()) continue;
+
+                size_t colonPos = line.find(':');
+                if (colonPos == string::npos) continue;
+
+                string filename = line.substr(0, colonPos);
+                string nodeStr = line.substr(colonPos + 1);
+
+                vector<int> nodeList;
+                stringstream ss(nodeStr);
+                string token;
+                while (getline(ss, token, ',')) {
+                    if (!token.empty()) {
+                        nodeList.push_back(stoi(token));
+                    }
+                }
+
+                if (!nodeList.empty()) {
+                    metadata[filename] = nodeList;
+                }
+            }
+            file.close();
+            cout << "[SYSTEM] Metadata loaded from disk.\n\n";
+        } catch (const exception &e) {
+            cout << "Warning: Failed to load metadata: " << e.what() << "\n";
+        }
+    }
 
 public:
     DistributedFS(int totalNodes) {
@@ -41,6 +96,7 @@ public:
             nodes.emplace_back(i);
 
         cout << "[DFS] Initialized with " << totalNodes << " nodes.\n";
+        loadMetadata();
     }
 
     // Upload file + replicate to 3 nodes
@@ -80,6 +136,8 @@ public:
         cout << "[UPLOAD SUCCESS] File replicated to nodes: ";
         for (int id : usedNodes) cout << id << " ";
         cout << "\n\n";
+        
+        saveMetadata();
     }
 
     // Download from any active node
@@ -130,6 +188,8 @@ public:
         metadata.erase(filename);
 
         cout << "[DELETE SUCCESS] File removed from DFS.\n\n";
+        
+        saveMetadata();
     }
 
     // List files with replicas
