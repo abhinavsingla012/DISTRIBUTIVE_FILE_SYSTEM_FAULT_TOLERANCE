@@ -4,6 +4,7 @@
 #include <vector>
 #include <map>
 #include <sstream>
+#include <algorithm>
 
 using namespace std;
 namespace fs = std::filesystem;
@@ -260,7 +261,69 @@ public:
                 cout << "WARNING: File '" << file
                      << "' has only " << activeCount
                      << " active replicas! Data loss risk!\n";
+                
+                // Attempt to re-replicate
+                reReplicateFile(file);
             }
+        }
+    }
+
+    // Re-replicate file to restore replication factor
+    void reReplicateFile(string filename) {
+        if (!metadata.count(filename)) return;
+
+        vector<int> &currentNodes = metadata[filename];
+        int activeReplicas = 0;
+
+        // Count active replicas
+        for (int id : currentNodes) {
+            if (nodes[id - 1].active)
+                activeReplicas++;
+        }
+
+        if (activeReplicas >= REPLICATION) return; // Already replicated enough
+
+        // Find the first active replica to copy from
+        int sourceNodeId = -1;
+        for (int id : currentNodes) {
+            if (nodes[id - 1].active) {
+                sourceNodeId = id;
+                break;
+            }
+        }
+
+        if (sourceNodeId == -1) return; // No active replica to copy from
+
+        try {
+            // Find inactive nodes in current list and try to restore on them
+            for (int id : currentNodes) {
+                if (!nodes[id - 1].active && activeReplicas < REPLICATION) {
+                    fs::copy(nodes[sourceNodeId - 1].directory / filename,
+                             nodes[id - 1].directory / filename,
+                             fs::copy_options::overwrite_existing);
+                    activeReplicas++;
+                    cout << "RE-REPLICATED: File '" << filename << "' restored to Node " << id << ".\n";
+                }
+            }
+
+            // If still below REPLICATION factor, add to new active nodes
+            if (activeReplicas < REPLICATION) {
+                for (auto &node : nodes) {
+                    if (node.active && find(currentNodes.begin(), currentNodes.end(), node.id) == currentNodes.end()) {
+                        fs::copy(nodes[sourceNodeId - 1].directory / filename,
+                                 node.directory / filename,
+                                 fs::copy_options::overwrite_existing);
+                        currentNodes.push_back(node.id);
+                        activeReplicas++;
+                        cout << "RE-REPLICATED: File '" << filename << "' added to Node " << node.id << ".\n";
+                        if (activeReplicas >= REPLICATION) break;
+                    }
+                }
+            }
+
+            saveMetadata();
+        } catch (const fs::filesystem_error &e) {
+            cout << "Error during re-replication: " << e.what() << "\n";
         }
     }
 };
